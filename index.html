@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ultimate Study Tracker</title>
+<style>
+:root{--primary:#4CAF50;--bg:#f0f4f8;--card:#fff;--text:#333;--accent:#2196F3;}
+body.light{--primary:#4CAF50;--bg:#f0f4f8;--card:#fff;--text:#333;--accent:#2196F3;}
+body.dark{--primary:#1e1e2f;--bg:#121212;--card:#1f1f2f;--text:#f0f0f0;--accent:#bb86fc;}
+body{font-family:Segoe UI,Tahoma,Verdana,sans-serif;margin:0;padding:0;background:var(--bg);color:var(--text);}
+header{background:var(--primary);color:#fff;padding:20px;display:flex;justify-content:space-between;align-items:center;}
+header h1{margin:0;font-size:1.5em;}
+header .header-buttons button{padding:8px 12px;margin-left:10px;border:none;border-radius:5px;cursor:pointer;}
+.container{display:flex;flex-wrap:wrap;}
+#tasksBox,#timetableBox{padding:20px;margin:10px;background:var(--card);border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1);}
+#tasksBox{flex:2;min-width:400px;}
+#timetableBox{flex:1;min-width:300px;max-width:400px;height:500px;overflow:auto;display:none;}
+.task-card{background:linear-gradient(135deg,#fff,#e6f2ff);border-radius:12px;padding:15px;margin:10px 0;position:relative;box-shadow:0 4px 10px rgba(0,0,0,0.1);transition:0.3s;}
+.task-card:hover{transform:scale(1.02);box-shadow:0 8px 15px rgba(0,0,0,0.2);}
+.task-name{font-size:18px;font-weight:bold;margin-bottom:5px;}
+.timer-display{font-size:16px;font-weight:bold;margin-top:5px;text-align:center;}
+.timer-btn,.edit-btn,.delete-btn,.pomodoro-btn{border:none;padding:5px 10px;border-radius:5px;margin:5px;cursor:pointer;transition:0.2s;}
+.timer-btn{background:var(--accent);color:white;}
+.timer-btn:hover{background:#1976D2;}
+.edit-btn{background:#FFC107;color:#fff;}
+.edit-btn:hover{background:#FFB300;}
+.delete-btn{background:#F44336;color:#fff;}
+.delete-btn:hover{background:#D32F2F;}
+.pomodoro-btn{background:#9C27B0;color:white;}
+.pomodoro-btn:hover{background:#7B1FA2;}
+.progress-bar{width:100%;background:#ddd;height:10px;border-radius:5px;margin-top:10px;overflow:hidden;}
+.progress-bar-inner{height:10px;width:0%;background:var(--primary);transition:0.3s;border-radius:5px;}
+.subject-complete{position:absolute;top:10px;right:10px;font-size:20px;color:var(--primary);display:none;}
+.subject-complete.show{display:block;animation:pop 0.5s ease;}
+@keyframes pop{0%{transform:scale(0);}50%{transform:scale(1.2);}100%{transform:scale(1);}}
+.daily-summary{text-align:center;font-size:16px;font-weight:bold;margin:10px 0;}
+#taskForm input,#taskForm select{padding:8px;margin:5px;border-radius:5px;border:1px solid #ccc;font-size:14px;}
+#taskForm button{padding:8px 10px;margin:5px;border:none;border-radius:5px;background:var(--primary);color:white;cursor:pointer;}
+canvas.confetti{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999;}
+table{width:100%;border-collapse:collapse;margin-top:10px;}
+td,th{border:1px solid #ccc;padding:5px;text-align:center;}
+td.slot{cursor:pointer;transition:0.2s;}
+td.slot:hover{background:#d0ebff;}
+.completed-task{background:#4CAF50;color:white;border-radius:5px;}
+</style>
+</head>
+<body class="light">
+<header>
+<h1 id="headerTitle">Study Tracker</h1>
+<div class="header-buttons">
+<button id="themeSwitch">Dark Mode</button>
+<button id="focusBtn">Focus Mode</button>
+<button id="timetableToggleBtn">+ Timetable</button>
+</div>
+</header>
+
+<div class="daily-summary" id="dailySummary">Loading summary...</div>
+
+<div class="container">
+  <div id="tasksBox">
+    <h2>Tasks</h2>
+    <div id="taskForm">
+      <input type="text" id="taskNameInput" placeholder="Task Name">
+      <input type="number" id="taskHourInput" placeholder="Hours" min="0">
+      <input type="number" id="taskMinuteInput" placeholder="Minutes" min="0">
+      <select id="taskCategory">
+        <option value="">Select Subject/Category</option>
+        <option value="Math">Math</option>
+        <option value="Physics">Physics</option>
+        <option value="Chemistry">Chemistry</option>
+        <option value="Biology">Biology</option>
+        <option value="General">General</option>
+      </select>
+      <button id="addTaskBtn">Add Task</button>
+    </div>
+    <div id="tasksContainer"></div>
+  </div>
+
+  <div id="timetableBox">
+    <h2>Weekly Timetable</h2>
+    <table id="timetableTable">
+      <thead>
+        <tr><th>Time</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th></tr>
+      </thead>
+      <tbody id="timetableBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Focus Mode Modal -->
+<div id="focusModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--card);padding:30px;border-radius:12px;box-shadow:0 5px 15px rgba(0,0,0,0.3);z-index:1000;text-align:center;">
+  <h2>Focus Mode</h2>
+  <label>Duration (minutes): <input type="number" id="focusDurationInput" value="25" min="1" style="width:60px;"></label>
+  <div style="margin:15px 0;font-size:24px;" id="focusTimerDisplay">25:00</div>
+  <button id="startFocusBtn" style="padding:8px 12px;border:none;border-radius:5px;background:var(--primary);color:white;cursor:pointer;">Start</button>
+  <button id="closeFocusBtn" style="padding:8px 12px;border:none;border-radius:5px;background:#F44336;color:white;cursor:pointer;margin-left:10px;">Close</button>
+</div>
+
+<canvas class="confetti" id="confettiCanvas"></canvas>
+
+<script>
+// ===== Theme & User Name =====
+let currentTheme = localStorage.getItem('theme') || 'light';
+document.body.className = currentTheme;
+document.getElementById('themeSwitch').textContent = currentTheme==='light'?'Dark Mode':'Light Mode';
+document.getElementById('themeSwitch').addEventListener('click',()=>{
+  currentTheme = currentTheme==='light'?'dark':'light';
+  document.body.className = currentTheme;
+  localStorage.setItem('theme',currentTheme);
+  document.getElementById('themeSwitch').textContent = currentTheme==='light'?'Dark Mode':'Light Mode';
+});
+let userName = localStorage.getItem('userName');
+if(!userName){ userName = prompt("Enter your name:"); if(userName) localStorage.setItem('userName',userName);}
+document.getElementById('headerTitle').textContent = `Hello, ${userName}! Study Tracker`;
+
+// ===== Data =====
+let tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+let timetable = JSON.parse(localStorage.getItem('timetable')) || {Mon:[],Tue:[],Wed:[],Thu:[],Fri:[],Sat:[],Sun:[]};
+let hoursArray=["08:00","09:00","10:00","11:00","12:00","13:00","14:00","15:00"];
+
+// ===== Confetti =====
+const confettiCanvas = document.getElementById('confettiCanvas');
+const confettiCtx = confettiCanvas.getContext('2d');
+confettiCanvas.width = window.innerWidth;
+confettiCanvas.height = window.innerHeight;
+let confettiParticles=[];
+function launchConfetti(){ confettiParticles=[]; for(let i=0;i<100;i++){confettiParticles.push({x:Math.random()*window.innerWidth,y:Math.random()*window.innerHeight,r:Math.random()*6+4,dx:(Math.random()-0.5)*4,dy:Math.random()*3+2,color:`hsl(${Math.random()*360},100%,50%)`});}}
+function drawConfetti(){ confettiCtx.clearRect(0,0,window.innerWidth,window.innerHeight); confettiParticles.forEach(p=>{confettiCtx.fillStyle=p.color; confettiCtx.beginPath(); confettiCtx.arc(p.x,p.y,p.r,0,Math.PI*2); confettiCtx.fill(); p.x+=p.dx; p.y+=p.dy; if(p.y>window.innerHeight){p.y=0;p.x=Math.random()*window.innerWidth;}}); requestAnimationFrame(drawConfetti);}
+drawConfetti();
+
+// ===== Timetable =====
+const timetableToggleBtn = document.getElementById('timetableToggleBtn');
+const timetableBox = document.getElementById('timetableBox');
+timetableToggleBtn.addEventListener('click',()=>{timetableBox.style.display=timetableBox.style.display==='none'?'block':'none';});
+function renderTimetable(){ const tbody=document.getElementById('timetableBody'); tbody.innerHTML=''; hoursArray.forEach(time=>{ let tr=document.createElement('tr'); let th=document.createElement('th'); th.textContent=time; tr.appendChild(th); ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].forEach(day=>{ let td=document.createElement('td'); td.className='slot'; let task=timetable[day].find(t=>t.start===time); td.textContent=task?task.task:''; if(task && task.completed) td.classList.add('completed-task'); td.addEventListener('click',()=>{ let taskName=prompt("Enter task for "+day+" "+time+":", td.textContent); if(taskName){ let existingIndex=timetable[day].findIndex(t=>t.start===time); if(existingIndex>=0) timetable[day][existingIndex].task=taskName; else timetable[day].push({task:taskName,start:time,completed:false}); localStorage.setItem('timetable',JSON.stringify(timetable)); renderTimetable();}}); tr.appendChild(td); }); tbody.appendChild(tr); });}
+// ===== Display Tasks & Timer =====
+function formatTime(sec){ const m=Math.floor(sec/60); const s=sec%60; return `${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`;}
+function updateSummary(){ 
+  let total=tasks.reduce((a,b)=>a.time*60 + a||0,0); 
+  let completed=tasks.reduce((a,b)=>a.time*60-(b.timeLeft||b.time*60)+a||0,0); 
+  let perc=total?Math.min(Math.round((completed/total)*100),100):0; 
+  document.getElementById('dailySummary').textContent=`Total Tasks: ${tasks.length} | Time Studied: ${Math.floor(completed/60)} min | ${perc}% completed`;
+}
+function displayTasks(){
+  const container=document.getElementById('tasksContainer'); container.innerHTML='';
+  tasks.forEach((t,i)=>{
+    const card=document.createElement('div'); card.className='task-card'; 
+    card.style.borderLeft=`6px solid ${t.category=="Math"?"#f44336":t.category=="Physics"?"#2196F3":t.category=="Chemistry"?"#FF9800":t.category=="Biology"?"#4CAF50":"#9C27B0"}`;
+    const name=document.createElement('div'); name.className='task-name'; name.textContent=t.name;
+    const categoryInfo=document.createElement('div'); categoryInfo.textContent = `Subject: ${t.category||'General'}`;
+    const timer=document.createElement('div'); timer.className='timer-display'; timer.textContent=formatTime(t.timeLeft||t.time*60);
+    const startBtn=document.createElement('button'); startBtn.className='timer-btn'; startBtn.textContent=t.running?'Pause':'Start';
+    const pomodoroBtn=document.createElement('button'); pomodoroBtn.className='pomodoro-btn'; pomodoroBtn.textContent='Focus';
+    const editBtn=document.createElement('button'); editBtn.className='edit-btn'; editBtn.textContent='✏️';
+    const deleteBtn=document.createElement('button'); deleteBtn.className='delete-btn'; deleteBtn.textContent='🗑️';
+    const progress=document.createElement('div'); progress.className='progress-bar'; 
+    const progressInner=document.createElement('div'); progressInner.className='progress-bar-inner'; 
+    const completeIcon=document.createElement('div'); completeIcon.className='subject-complete'; completeIcon.textContent='✔️'; 
+    progress.appendChild(progressInner); card.appendChild(name); card.appendChild(categoryInfo); card.appendChild(timer); card.appendChild(startBtn); card.appendChild(pomodoroBtn); card.appendChild(editBtn); card.appendChild(deleteBtn); card.appendChild(progress); card.appendChild(completeIcon);
+    container.appendChild(card);
+
+    // Events
+    startBtn.addEventListener('click',()=>{
+      if(!t.timeLeft && t.time) t.timeLeft=t.time*60; t.running=!t.running; startBtn.textContent=t.running?'Pause':'Start';
+    });
+    pomodoroBtn.addEventListener('click',()=>{
+      document.getElementById('focusBtn').click();
+    });
+    editBtn.addEventListener('click',()=>{
+      let newName = prompt("Edit task name:",t.name); if(!newName)return;
+      let newHours=parseInt(prompt("Edit hours:",Math.floor(t.time/60)))||0;
+      let newMinutes=parseInt(prompt("Edit minutes:",t.time%60))||0;
+      t.name=newName; t.time=newHours*60+newMinutes; t.timeLeft=t.time*60; localStorage.setItem('tasks',JSON.stringify(tasks)); displayTasks();
+    });
+    deleteBtn.addEventListener('click',()=>{ if(confirm(`Delete task "${t.name}"?`)){ tasks.splice(i,1); localStorage.setItem('tasks',JSON.stringify(tasks)); displayTasks();}});
+
+    let totalSec=t.time*60; let studiedSec=totalSec-(t.timeLeft||totalSec); let perc=Math.min((studiedSec/totalSec)*100,100);
+    progressInner.style.width=perc+'%'; 
+    if(t.timeLeft===0 && !t.completed){ t.completed=true; completeIcon.classList.add('show'); launchConfetti(); } else completeIcon.classList.remove('show');
+    timer.textContent=formatTime(t.timeLeft||totalSec);
+  });
+  localStorage.setItem('tasks',JSON.stringify(tasks)); updateSummary(); renderTimetable();
+}
+
+// ===== Add Task =====
+document.getElementById('addTaskBtn').addEventListener('click',()=>{
+  const name=document.getElementById('taskNameInput').value.trim();
+  const hours=parseInt(document.getElementById('taskHourInput').value)||0;
+  const minutes=parseInt(document.getElementById('taskMinuteInput').value)||0;
+  const category=document.getElementById('taskCategory').value;
+  if(!name||(hours===0 && minutes===0)) return;
+  const totalMinutes=hours*60+minutes;
+  tasks.push({name:name,time:totalMinutes,timeLeft:totalMinutes*60,running:false,completed:false,category:category});
+  document.getElementById('taskNameInput').value=''; document.getElementById('taskHourInput').value=''; document.getElementById('taskMinuteInput').value=''; document.getElementById('taskCategory').value='';
+  displayTasks();
+});
+
+// ===== Timer Interval =====
+setInterval(()=>{
+  let anyActive=false;
+  tasks.forEach(t=>{
+    if(t.running && t.timeLeft>0){ t.timeLeft--; anyActive=true; if(t.timeLeft===0){ t.running=false; alert(`Timer for ${t.name} finished!`); } }
+  });
+  if(anyActive) displayTasks();
+},1000);
+
+// ===== Focus Mode Logic =====
+const focusModal = document.getElementById('focusModal');
+const focusDurationInput = document.getElementById('focusDurationInput');
+const focusTimerDisplay = document.getElementById('focusTimerDisplay');
+const startFocusBtn = document.getElementById('startFocusBtn');
+const closeFocusBtn = document.getElementById('closeFocusBtn');
+
+let focusInterval;
+let focusTimeLeft;
+
+// Open modal on button click
+document.getElementById('focusBtn').addEventListener('click',()=>{
+  focusModal.style.display='block';
+  let val = parseInt(focusDurationInput.value)||25;
+  focusTimeLeft = val*60;
+  focusTimerDisplay.textContent = `${val.toString().padStart(2,'0')}:00`;
+});
+
+// Close modal
+closeFocusBtn.addEventListener('click',()=>{
+  focusModal.style.display='none';
+  clearInterval(focusInterval);
+});
+
+// Start Focus Timer
+startFocusBtn.addEventListener('click',()=>{
+  clearInterval(focusInterval);
+  focusInterval=setInterval(()=>{
+    if(focusTimeLeft>0){ focusTimeLeft--; let m=Math.floor(focusTimeLeft/60); let s=focusTimeLeft%60; focusTimerDisplay.textContent=`${m.toString().padStart(2,'0')}:${s.toString().padStart(2,'0')}`; }
+    else{ clearInterval(focusInterval); alert("Focus session complete!"); }
+  },1000);
+});
+
+// ===== Initialize =====
+displayTasks();
+renderTimetable();
+</script>
+</body>
+</html>
